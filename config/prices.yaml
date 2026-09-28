@@ -1,0 +1,16 @@
+# Model prices for Lodestar's cost estimates (lodestar/pricing.py).
+#
+# For each model name as it appears in LODESTAR_FIT_MODELS:
+#   free_tier: true      you pay $0 for this model (the list-price estimate is still shown)
+#   input_per_mtok: x    USD per million input tokens  } optional: override LiteLLM's
+#   output_per_mtok: y   USD per million output tokens } built-in price table
+#
+# Check current prices and your plan on each provider's pricing / billing page.
+
+gemini-3.1-flash-lite:
+  free_tier: true          # Gemini API free tier (no billing set up)
+
+groq/openai/gpt-oss-120b:
+  free_tier: true          # Groq free tier
+
+# openai/gpt-5.4-nano: paid; price from LiteLLM's table unless you set one here

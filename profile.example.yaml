@@ -1,0 +1,62 @@
+# Copy to data/profile.yaml (gitignored) and fill in your own details.
+# Every id in a skill's `evidence` must match an experience, project or education id.
+# One entry per skill: `depth` = deepest level ever reached,
+# `last_used` = most recent year used at any level.
+
+name: Jane Example
+summary: Backend-leaning full-stack engineer with long experience in data-heavy web apps.
+
+targets:
+  roles: [Backend Engineer, Full-Stack Engineer]
+  seniority: [senior, staff]
+  locations: [San Francisco Bay Area]
+  work_modes: [remote, hybrid]
+  frontend_preference: light_frontend_ok
+  notes: Interested in agent and data platform work.
+
+experience:
+  - id: exp-acme
+    company: Acme Corp
+    title: Staff Software Engineer
+    start: "2012-03"
+    end: "2019-06"
+    highlights:
+      - Built the data pipeline for materials experiments
+    technologies: [Java, Oracle, React]
+
+projects:
+  - id: proj-quizbot
+    name: QuizBot
+    description: Emails practice questions and follows up with explanations.
+    url: https://github.com/example/quizbot
+    technologies: [Python, MCP]
+
+education:
+  - id: edu-bs
+    kind: degree
+    institution: Example University
+    title: B.S. Computer Engineering
+    year: 2000
+  - id: course-agents
+    kind: course
+    institution: Online course
+    title: Agent frameworks (ADK, A2A, MCP)
+    year: 2026
+
+skills:
+  - name: Java
+    depth: production
+    last_used: 2019
+    evidence: [exp-acme]
+  - name: Python
+    depth: project
+    last_used: 2026
+    evidence: [proj-quizbot]
+  - name: Google ADK
+    depth: course
+    last_used: 2026
+    evidence: [course-agents]
+
+languages:
+  - name: English
+    proficiency: fluent

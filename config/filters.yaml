@@ -1,0 +1,124 @@
+# Deterministic pre-filter for `lodestar discover`: runs before any LLM call.
+# Matching is case-insensitive, on whole words. Every skipped posting is logged with its reason.
+
+title:
+  include_any: [engineer, engineering, developer, swe, member of technical staff]   # engineering roles only
+  exclude_any:
+    # your rules
+    - ios
+    - manager
+    - intern
+    # below senior / above staff
+    - junior
+    - new grad
+    - early career
+    - principal
+    - director
+    - head of
+    # customer-facing roles
+    - legal engineer
+    - sales
+    - solutions engineer
+    - field engineering
+    - deployed engineer        # also matches "Forward Deployed Engineer"
+    - gtm
+    - partner engineer
+    - support engineer
+    - customer success
+    - developer relations
+    - marketing engineer
+    # hardware
+    - hardware
+    - electrical
+    - materials
+    - mechanical
+    - supplier
+    - quality engineer
+    - dfm
+    - cmf
+    - battery
+    - power quality
+    # other specialties
+    - security engineer        # not "Software Engineer, Security" or "Security Software Engineer"
+    - network engineer
+    - it systems
+    - trust engineer
+    - compliance
+    # DEFAULT, your call: frontend-heavy roles (profile: light frontend OK, avoid frontend-heavy).
+    # Full-stack still passes. Delete this block to see frontend roles.
+    - frontend
+    - front-end
+    - front end
+    - design engineer
+    - web engineer
+    # DEFAULT, your call: ML / research (model training, not agent products).
+    - research engineer
+    - machine learning
+    - ml engineer
+    # DEFAULT, your call: analytics engineering (Data Engineer still passes).
+    - analytics engineer
+    # DEFAULT, your call: software test (Developer Productivity still passes).
+    - test engineer
+  # below senior: "Software Engineer I", "Engineer II", "Engineer 2", ...
+  exclude_patterns: ['\b(engineer|developer)\s+(i|ii|1|2)\b']
+
+location:
+  bay_area:                                         # a posting in any of these passes
+    - bay area
+    - sf
+    - san francisco
+    - south san francisco
+    - oakland
+    - berkeley
+    - emeryville
+    - san mateo
+    - redwood city
+    - menlo park
+    - palo alto
+    - mountain view
+    - sunnyvale
+    - santa clara
+    - san jose
+    - fremont
+    - milpitas
+    - cupertino
+    - foster city
+    - san bruno
+  us_markers: [us, usa, u.s., united states, north america, americas]
+  # Remote tied to one of these (and nothing US) is skipped.
+  non_us_markers:
+    - canada
+    - toronto
+    - vancouver
+    - montreal
+    - london
+    - uk
+    - united kingdom
+    - ireland
+    - dublin
+    - europe
+    - emea
+    - germany
+    - berlin
+    - munich
+    - france
+    - paris
+    - spain
+    - madrid
+    - netherlands
+    - amsterdam
+    - poland
+    - india
+    - bengaluru
+    - bangalore
+    - apac
+    - latam
+    - brazil
+    - mexico
+    - australia
+    - sydney
+    - singapore
+    - japan
+    - tokyo
+    - israel
+    - seoul

@@ -1,0 +1,25 @@
+# Companies whose job boards `lodestar discover` lists. One request per board.
+# ats: greenhouse | lever | ashby. board: the name in the board URL, e.g.
+#   https://jobs.ashbyhq.com/<board>   https://job-boards.greenhouse.io/<board>   https://jobs.lever.co/<board>
+# Starter list from a search for current senior backend / platform / full-stack postings
+# (Bay Area or US-remote). Prune by what `discover` finds.
+
+companies:
+  - {company: Close, ats: ashby, board: close}
+  - {company: RevenueCat, ats: ashby, board: revenuecat}
+  - {company: Patreon, ats: ashby, board: patreon}
+  - {company: Semgrep, ats: ashby, board: semgrep}
+  - {company: Hatch, ats: ashby, board: hatch}
+  - {company: Notion, ats: ashby, board: notion}
+  - {company: LangChain, ats: ashby, board: langchain}
+  - {company: Harvey, ats: ashby, board: harvey}
+  - {company: Oura, ats: greenhouse, board: oura}
+  - {company: You.com, ats: greenhouse, board: youcom}
+  - {company: Scanner, ats: greenhouse, board: scanner}
+  - {company: Baselayer, ats: greenhouse, board: baselayer}
+  - {company: Together AI, ats: greenhouse, board: togetherai}
+  - {company: Ketch, ats: greenhouse, board: ketch}
+
+# Boards never to list: aggregators that repost other companies' jobs.
+blocklist:
+  - {ats: lever, board: jobgether}
