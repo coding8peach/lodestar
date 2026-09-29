@@ -4,6 +4,11 @@
 # `last_used` = most recent year used at any level.
 
 name: Jane Example
+contact:
+  email: jane@example.com
+  location: San Francisco Bay Area
+  links: {github: https://github.com/example}
+
 summary: Backend-leaning full-stack engineer with long experience in data-heavy web apps.
 
 targets:

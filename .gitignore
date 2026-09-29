@@ -16,4 +16,4 @@ data/
 eval/jobs/
 eval/runs/
 eval/expected.yaml
-reference/
+reference/*.zip
