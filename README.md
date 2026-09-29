@@ -8,9 +8,10 @@ only the plausible ones to an LLM agent that judges each requirement against you
 Python turns those judgments into a score; you approve or reject; a second agent drafts a resume
 tailored to each approved job, and Python checks that it invents nothing.
 
-**Live demo:** _link coming soon_ (a fictional candidate and fictional postings, analyzed by the real agents; read-only)
+**Live demo:** [Lodestar](https://lodestar-demo.onrender.com/) (a fictional candidate and fictional postings, analyzed by the real agents; read-only)
 
 ![Review page](docs/screenshots/review.png)
+![Decisions page with a tailored resume](docs/screenshots/decisions.png)
 
 ## Why it's built this way
 
