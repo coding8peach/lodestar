@@ -55,6 +55,7 @@ async def fake_tailor(job_id, max_paid_usd=None):
 @pytest.fixture
 def built(tmp_path, monkeypatch):
     monkeypatch.delenv("LODESTAR_DEMO", raising=False)
+    monkeypatch.setattr(build_demo, "PAUSE_BETWEEN_JOBS", 0.0)
     db = tmp_path / "demo.sqlite"
     result = build_demo.build(fake_analyze, fake_tailor, db=db)
     return db, result
@@ -144,3 +145,39 @@ def test_committed_demo_files_are_valid():
     from lodestar.schemas import load_profile
     assert load_profile(ROOT / "demo" / "profile.yaml").name == "Morgan Lee"
     assert len(yaml.safe_load((ROOT / "demo" / "postings.yaml").read_text())) == 16
+
+
+def test_finish_only_redoes_what_failed(tmp_path, monkeypatch):
+    from lodestar.fit_agent.runner import AllModelsFailed
+    from lodestar.schemas import LlmCall
+
+    monkeypatch.delenv("LODESTAR_DEMO", raising=False)
+    monkeypatch.setattr(build_demo, "PAUSE_BETWEEN_JOBS", 0.0)
+    db = tmp_path / "demo.sqlite"
+    attempts = {"n": 0}
+
+    async def flaky_tailor(job_id, max_paid_usd=None):
+        attempts["n"] += 1
+        if attempts["n"] == 2:  # the second resume hits a busy model
+            from datetime import datetime, timezone
+            raise AllModelsFailed("every model failed: gemini: 503", calls=[LlmCall(
+                model="gemini", attempt=1, status="rate_limited", started_at=datetime.now(timezone.utc))])
+        return await fake_tailor(job_id, max_paid_usd)
+
+    first = build_demo.build(fake_analyze, flaky_tailor, db=db)
+    assert first["tailored"] == build_demo.TAILOR  # a third approved job was tried after the failure
+    from lodestar.db import connect
+    with closing(connect(db)) as conn:
+        failed_calls = conn.execute("SELECT COUNT(*) FROM llm_calls WHERE status = 'rate_limited'").fetchone()[0]
+        runs = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
+    assert failed_calls == 1  # the failed attempt's calls are recorded, not lost
+
+    again = build_demo.finish(fake_analyze, fake_tailor, db=db)
+    assert again["tailored"] == build_demo.TAILOR
+    with closing(connect(db)) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == runs  # nothing redone
+
+
+def test_finish_needs_an_existing_database(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        build_demo.finish(fake_analyze, fake_tailor, db=tmp_path / "none.sqlite")

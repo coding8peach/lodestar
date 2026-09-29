@@ -1,6 +1,7 @@
 """Build the demo database from the fictional candidate and postings, using the real agents.
 
     uv run python demo/build_demo.py            # needs LODESTAR_FIT_MODELS and API keys in .env
+    uv run python demo/build_demo.py --finish   # keep the database; only redo what failed
 
 Writes demo/demo.sqlite (committed; the deployed demo serves a copy of it). Steps:
   1. every posting goes through the real pre-filter: passing ones are queued, the rest logged
@@ -25,6 +26,7 @@ DEMO_DIR = Path(__file__).resolve().parent
 DB = DEMO_DIR / "demo.sqlite"
 ANALYZE = 9
 TAILOR = 2
+PAUSE_BETWEEN_JOBS = 5.0  # seconds between resumes: gives a busy free-tier model a moment
 APPROVE_NOTES = ["Strong backend match; apply this week", "Agent work I'm doing already; good stretch role",
                  "Good fit; check team size"]
 
@@ -109,6 +111,59 @@ def decide() -> list[str]:
     return approved
 
 
+def _tailor_missing(tailor_fn) -> int:
+    """Tailor approved jobs without a resume until TAILOR have one. Returns how many have one."""
+    import time
+
+    from lodestar.app import service
+
+    approved = [i for i in service.decisions("approve") if not i.dismissed]
+    have = sum(1 for i in approved if i.has_resume)
+    for item in approved:
+        if have >= TAILOR:
+            break
+        if item.has_resume:
+            continue
+        try:
+            service.tailor(item.job_id, tailor_fn=tailor_fn)
+            have += 1
+        except ValueError as e:
+            logging.warning("tailoring %s failed: %s", item.job_id, e)
+        time.sleep(PAUSE_BETWEEN_JOBS)
+    return have
+
+
+def _single_file() -> None:
+    from lodestar.db import connect
+
+    with closing(connect()) as conn:  # one self-contained file for the repo
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        conn.execute("PRAGMA journal_mode=DELETE")
+
+
+def finish(analyze_fn, tailor_fn, db: Path = DB) -> dict:
+    """Keep the existing demo database; analyze what's still queued (up to ANALYZE in total) and
+    tailor the missing resumes. For when a busy model made part of a build fail."""
+    configure_environment(db)
+    if not db.exists():
+        raise FileNotFoundError(f"{db} doesn't exist yet; run without --finish first")
+    from lodestar.app import service
+    from lodestar.db import connect, init_db
+
+    with closing(connect()) as conn:
+        init_db(conn)
+        analyzed = conn.execute("SELECT COUNT(DISTINCT job_id) FROM fit_results").fetchone()[0]
+    batch = None
+    if analyzed < ANALYZE:
+        batch = service.analyze_next(ANALYZE - analyzed, analyze_fn=analyze_fn)
+    if not service.decisions("approve"):
+        decide()
+    tailored = _tailor_missing(tailor_fn)
+    _single_file()
+    return {"analyzed": analyzed + (batch.ok if batch else 0), "failed": batch.failed if batch else 0,
+            "approved": len(service.decisions("approve")), "tailored": tailored}
+
+
 def build(analyze_fn, tailor_fn, db: Path = DB) -> dict:
     configure_environment(db)
     for suffix in ("", "-wal", "-shm"):
@@ -124,18 +179,10 @@ def build(analyze_fn, tailor_fn, db: Path = DB) -> dict:
                                  on_progress=lambda j: logging.info("analyzed %s: %s", j.title, j.recommendation
                                                                     or j.error))
     approved = decide()
-    tailored = []
-    for job_id in approved[:TAILOR]:
-        try:
-            service.tailor(job_id, tailor_fn=tailor_fn)
-            tailored.append(job_id)
-        except ValueError as e:
-            logging.warning("tailoring %s failed: %s", job_id, e)
-    with closing(connect()) as conn:  # one self-contained file for the repo
-        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-        conn.execute("PRAGMA journal_mode=DELETE")
+    tailored = _tailor_missing(tailor_fn)
+    _single_file()
     return {**counts, "analyzed": batch.ok, "failed": batch.failed, "approved": len(approved),
-            "tailored": len(tailored)}
+            "tailored": tailored}
 
 
 def main() -> int:
@@ -151,10 +198,10 @@ def main() -> int:
     from lodestar.fit_agent.models import model_names_from_env
 
     analyze_fn, tailor_fn = direct_agents(model_names_from_env())
-    result = build(analyze_fn, tailor_fn)
+    result = (finish if "--finish" in sys.argv else build)(analyze_fn, tailor_fn)
     logging.info("demo database written to %s: %s", DB, result)
     if result["failed"] or result["tailored"] < TAILOR:
-        logging.warning("some steps failed (often a busy model); run again later for a complete demo")
+        logging.warning("some steps failed (often a busy model); later, run with --finish to redo only those")
         return 1
     return 0
 

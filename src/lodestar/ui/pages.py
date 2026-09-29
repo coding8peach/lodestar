@@ -105,9 +105,9 @@ def review_page() -> None:
             df, hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
             selection_default={"selection": {"rows": [ids.index(selected)]}},
             column_config={
-                "Recommendation": st.column_config.TextColumn(width="small"),
-                "Skill fit": st.column_config.NumberColumn(width="small"),
-                "Company": st.column_config.TextColumn(width="small"),
+                "Recommendation": st.column_config.TextColumn(width=130),
+                "Skill fit": st.column_config.NumberColumn(width=75),
+                "Company": st.column_config.TextColumn(width="medium"),
                 "Title": st.column_config.TextColumn(width="large"),
                 "Location": st.column_config.TextColumn(width="medium"),
                 "Analyzed": st.column_config.TextColumn(width="small"),
@@ -242,7 +242,7 @@ def queue_page() -> None:
         column_config={
             "Rank": st.column_config.NumberColumn(width=50),
             "Score": st.column_config.NumberColumn(width=55),
-            "Company": st.column_config.TextColumn(width="small"),
+            "Company": st.column_config.TextColumn(width="medium"),
             "Title": st.column_config.TextColumn(width="large"),
             "Location": st.column_config.TextColumn(width="medium"),
             "Matched": st.column_config.TextColumn(width="medium"),
@@ -276,7 +276,7 @@ def _decision_frame(items) -> pd.DataFrame:
 
 DECISION_COLUMNS = {
     "Decided": st.column_config.TextColumn(width=70),
-    "Company": st.column_config.TextColumn(width="small"),
+    "Company": st.column_config.TextColumn(width="medium"),
     "Title": st.column_config.TextColumn(width="large"),
     "Resume": st.column_config.TextColumn(width=65),
     "Note": st.column_config.TextColumn(width="medium"),

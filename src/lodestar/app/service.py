@@ -386,6 +386,10 @@ def tailor(job_id: str, tailor_fn=None) -> ResumeView:
             save_llm_calls(conn, reply.calls, run_id, job_id)
         ok = True
     except Exception as e:
+        failed_calls = getattr(e, "calls", None) or getattr(e.__cause__, "calls", None)
+        if failed_calls:  # record what the failed attempts used (in-process agents attach their calls)
+            with _conn() as conn:
+                save_llm_calls(conn, failed_calls, run_id, job_id)
         if isinstance(e, ValueError):
             raise
         raise ValueError(f"tailoring failed: {(str(e).splitlines() or [type(e).__name__])[0][:300]}") from e
