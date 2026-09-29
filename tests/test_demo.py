@@ -181,3 +181,13 @@ def test_finish_only_redoes_what_failed(tmp_path, monkeypatch):
 def test_finish_needs_an_existing_database(tmp_path):
     with pytest.raises(FileNotFoundError):
         build_demo.finish(fake_analyze, fake_tailor, db=tmp_path / "none.sqlite")
+
+
+def test_approval_notes_match_their_job(built):
+    db, _ = built
+    from lodestar.db import connect
+    with closing(connect(db)) as conn:
+        rows = conn.execute("SELECT j.company, d.note FROM decisions d JOIN fit_results f ON f.id = d.fit_result_id "
+                            "JOIN jobs j ON j.id = f.job_id WHERE d.decision = 'approve'").fetchall()
+    assert rows and all(note == build_demo.APPROVE_NOTES.get(company, build_demo.DEFAULT_NOTE)
+                        for company, note in rows)

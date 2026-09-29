@@ -279,7 +279,9 @@ DECISION_COLUMNS = {
     "Company": st.column_config.TextColumn(width="medium"),
     "Title": st.column_config.TextColumn(width="large"),
     "Resume": st.column_config.TextColumn(width=65),
-    "Note": st.column_config.TextColumn(width="medium"),
+    "Note": st.column_config.TextColumn(width=220),
+    "Agent": st.column_config.TextColumn(width=80),
+    "Skill fit": st.column_config.NumberColumn(width=65),
     "Posting": st.column_config.LinkColumn(display_text="Open", width=60),
 }
 

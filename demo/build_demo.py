@@ -27,8 +27,18 @@ DB = DEMO_DIR / "demo.sqlite"
 ANALYZE = 9
 TAILOR = 2
 PAUSE_BETWEEN_JOBS = 5.0  # seconds between resumes: gives a busy free-tier model a moment
-APPROVE_NOTES = ["Strong backend match; apply this week", "Agent work I'm doing already; good stretch role",
-                 "Good fit; check team size"]
+MAX_APPROVE = 3
+# The candidate's notes, matched to the job (read by demo visitors, so they should make sense).
+APPROVE_NOTES = {
+    "Harborline": "Strong backend match; apply this week",
+    "Tessellate AI": "Agent platform work, like my own projects; apply",
+    "Lumen Learning Labs": "LLM tutoring is close to my study-app projects; apply",
+    "Meridian Health Data": "Good full-stack fit; ask how much of the role is frontend",
+    "Beacon Payments": "Go is new to me, but the backend fit is strong",
+    "Vantage Logistics": "Solid Java backend fit; check the hybrid schedule",
+    "Quillstack": "Data platform in Java; big scale, worth a try",
+}
+DEFAULT_NOTE = "Good fit; apply this week"
 
 
 def configure_environment(db: Path = DB) -> None:
@@ -101,8 +111,8 @@ def decide() -> list[str]:
     for item in service.review_queue():
         if item.recommendation == "blocked":
             service.record_decision(item.job_id, "reject", "blocked: " + "; ".join(item.blocked_by))
-        elif item.recommendation == "top_pick" and len(approved) < len(APPROVE_NOTES):
-            service.record_decision(item.job_id, "approve", APPROVE_NOTES[len(approved)])
+        elif item.recommendation == "top_pick" and len(approved) < MAX_APPROVE:
+            service.record_decision(item.job_id, "approve", APPROVE_NOTES.get(item.company, DEFAULT_NOTE))
             approved.append(item.job_id)
     waiting = [i for i in service.review_queue() if i.recommendation == "possible"]
     if waiting:  # one low fit rejected, to show a rejection with a note; the rest stay waiting
@@ -133,6 +143,18 @@ def _tailor_missing(tailor_fn) -> int:
     return have
 
 
+def _refresh_notes() -> None:
+    """Rewrite approval notes to match their job (demos built before notes were matched by company)."""
+    from lodestar.db import connect
+
+    with closing(connect()) as conn, conn:
+        rows = conn.execute("SELECT d.id, j.company FROM decisions d JOIN fit_results f ON f.id = d.fit_result_id "
+                            "JOIN jobs j ON j.id = f.job_id WHERE d.decision = 'approve'").fetchall()
+        for row in rows:
+            conn.execute("UPDATE decisions SET note = ? WHERE id = ?",
+                         (APPROVE_NOTES.get(row["company"], DEFAULT_NOTE), row["id"]))
+
+
 def _single_file() -> None:
     from lodestar.db import connect
 
@@ -158,6 +180,7 @@ def finish(analyze_fn, tailor_fn, db: Path = DB) -> dict:
         batch = service.analyze_next(ANALYZE - analyzed, analyze_fn=analyze_fn)
     if not service.decisions("approve"):
         decide()
+    _refresh_notes()
     tailored = _tailor_missing(tailor_fn)
     _single_file()
     return {"analyzed": analyzed + (batch.ok if batch else 0), "failed": batch.failed if batch else 0,

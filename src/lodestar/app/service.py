@@ -372,6 +372,8 @@ def tailor(job_id: str, tailor_fn=None) -> ResumeView:
     ok = False
     try:
         reply = asyncio.run((tailor_fn or tailor_via_a2a)(job_id, max_paid_usd=remaining))
+        with _conn() as conn:  # the calls were made either way: record them before any check can stop us
+            save_llm_calls(conn, reply.calls, run_id, job_id)
         profile = load_profile(profile_path())
         try:  # the agent service checked it; check again against this machine's profile
             resume = check_resume(reply.resume, profile, job_id)
@@ -383,7 +385,6 @@ def tailor(job_id: str, tailor_fn=None) -> ResumeView:
                              "data/profile.yaml: " + "; ".join(placeholders))
         with _conn() as conn:
             save_resume(conn, resume, reply.model, PROMPT_VERSION, run_id)
-            save_llm_calls(conn, reply.calls, run_id, job_id)
         ok = True
     except Exception as e:
         failed_calls = getattr(e, "calls", None) or getattr(e.__cause__, "calls", None)

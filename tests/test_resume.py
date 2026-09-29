@@ -334,3 +334,19 @@ def test_panel_disabled_when_the_agent_is_down(data, monkeypatch):
     at = _panel_app()
     assert at.button(key="tailor").disabled
     assert any("lodestar-agent" in c.value for c in at.caption)
+
+
+def test_calls_recorded_even_when_the_local_check_stops_the_save(data):
+    from lodestar.app import service
+    from lodestar.schemas import LlmCall
+    from lodestar.schemas.resume import ResumeAgentReply
+
+    async def reply_with_calls(job_id, max_paid_usd=None):
+        return ResumeAgentReply(resume=draft(skills=["Kubernetes"]), model="m", calls=[LlmCall(
+            model="m", attempt=1, status="ok", input_tokens=100, started_at=datetime.now(timezone.utc))])
+
+    with pytest.raises(ValueError, match="didn't hold up"):
+        service.tailor(JOB_ID, tailor_fn=reply_with_calls)
+    with closing(connect()) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM llm_calls").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM resumes").fetchone()[0] == 0
