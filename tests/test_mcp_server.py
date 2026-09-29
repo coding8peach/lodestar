@@ -47,7 +47,7 @@ def test_lists_three_tools():
         async with Client(mcp) as client:
             return await client.list_tools()
     names = {t.name for t in asyncio.run(run()).tools}
-    assert names == {"ingest_url", "get_job", "get_profile"}
+    assert names == {"ingest_url", "get_job", "get_fit_analysis", "get_profile"}
 
 
 def test_get_job(env):

@@ -1,0 +1,122 @@
+# Fictional demo candidate. Mirrors a common path: two decades of enterprise backend and
+# full-stack work, now building AI agent systems. All names, companies and links are made up.
+
+name: Morgan Lee
+summary: >-
+  Backend-leaning full-stack engineer with long experience building data-heavy enterprise
+  applications in Java and C#, now building AI agent systems in Python with MCP and ADK.
+
+contact:
+  email: morgan.lee@example.com
+  location: San Francisco Bay Area
+  links: {github: https://github.com/example-morgan}
+
+targets:
+  roles: [Backend Engineer, Full-Stack Engineer, AI/Agent Engineer]
+  seniority: [senior, staff]
+  locations: [San Francisco Bay Area]
+  work_modes: [remote, hybrid]
+  frontend_preference: light_frontend_ok
+  notes: Can maintain frontend code; prefers roles where frontend is not the main focus.
+
+experience:
+  - id: exp-latticeworks
+    company: Latticeworks Materials
+    title: Staff Software Engineer
+    start: "2010-04"
+    end: "2019-08"
+    highlights:
+      - Designed and built REST APIs in Java for the experiment-data platform used by research teams
+      - Built the data pipeline that loaded instrument results into Oracle, cutting report time from 40 minutes to 5
+      - Led the migration of the analysis UI from Flex to ExtJS and later React with AG Grid
+      - Wrote unit and integration tests for the data services and set up nightly regression runs
+    technologies: [Java, Oracle, REST APIs, ExtJS, React, AG Grid, Flex]
+
+  - id: exp-waypoint
+    company: Waypoint Web
+    title: Senior Software Engineer
+    start: "2006-02"
+    end: "2009-11"
+    highlights:
+      - Built backend services in C++ and C# for a consumer web portal with millions of daily page views
+      - Maintained MySQL schemas and query tuning for the content and personalization services
+    technologies: [C++, C#, MySQL]
+
+  - id: exp-glossa
+    company: Glossa Translation Software
+    title: Software Engineer
+    start: "2003-01"
+    end: "2006-01"
+    highlights:
+      - Built components of a translation-memory server in Java and C++ backed by SQL Server
+    technologies: [Java, C++, SQL Server]
+
+  - id: exp-parallax
+    company: Parallax Localization
+    title: Software Engineer
+    start: "2000-06"
+    end: "2002-12"
+    highlights:
+      - Developed localization workflow tools in C and C++
+    technologies: [C, C++]
+
+projects:
+  - id: proj-tracklight
+    name: Tracklight
+    description: >-
+      Personal job-search assistant: a LangGraph workflow with human review, an ADK fit agent
+      served over A2A, and an MCP server over a SQLite job database.
+    url: https://github.com/example-morgan/tracklight
+    highlights:
+      - Fit agent judges each job requirement against the profile; Python computes the score
+      - Deterministic pre-filter and ranking before any LLM call; per-run model fallback
+    technologies: [Python, LangGraph, Google ADK, A2A, MCP, SQLite, Pydantic]
+
+  - id: proj-quizwell
+    name: Quizwell
+    description: >-
+      MCP server over an SAT question bank, shared by several study apps; deployed on Render
+      with a Supabase PostgreSQL database and used daily by family members.
+    highlights:
+      - Serves questions, answers and explanations to other apps through MCP tools
+    technologies: [Python, MCP, PostgreSQL, Supabase, Render]
+
+  - id: proj-studymate
+    name: Studymate
+    description: Streamlit study companion that asks students why they chose an answer.
+    technologies: [Python, Streamlit, MCP, Render]
+
+education:
+  - id: edu-bs
+    kind: degree
+    institution: Bayview State University
+    title: B.S. Computer Engineering
+    year: 2000
+  - id: course-agents
+    kind: course
+    institution: Online course
+    title: Agent frameworks (Google ADK, A2A, MCP, LangGraph)
+    year: 2026
+
+skills:
+  - {name: Java, depth: production, last_used: 2019, evidence: [exp-latticeworks, exp-glossa]}
+  - {name: REST APIs, depth: production, last_used: 2019, evidence: [exp-latticeworks]}
+  - {name: Oracle, depth: production, last_used: 2019, evidence: [exp-latticeworks]}
+  - {name: React, depth: production, last_used: 2019, evidence: [exp-latticeworks]}
+  - {name: AG Grid, depth: production, last_used: 2019, evidence: [exp-latticeworks]}
+  - {name: ExtJS, depth: production, last_used: 2016, evidence: [exp-latticeworks]}
+  - {name: C++, depth: production, last_used: 2009, evidence: [exp-waypoint, exp-glossa, exp-parallax]}
+  - {name: C#, depth: production, last_used: 2009, evidence: [exp-waypoint]}
+  - {name: MySQL, depth: production, last_used: 2009, evidence: [exp-waypoint]}
+  - {name: SQL Server, depth: production, last_used: 2006, evidence: [exp-glossa]}
+  - {name: Python, depth: project, last_used: 2026, evidence: [proj-tracklight, proj-quizwell, proj-studymate]}
+  - {name: MCP, depth: project, last_used: 2026, evidence: [proj-tracklight, proj-quizwell]}
+  - {name: LangGraph, depth: project, last_used: 2026, evidence: [proj-tracklight, course-agents]}
+  - {name: Google ADK, depth: project, last_used: 2026, evidence: [proj-tracklight, course-agents]}
+  - {name: A2A, depth: project, last_used: 2026, evidence: [proj-tracklight, course-agents]}
+  - {name: PostgreSQL, depth: project, last_used: 2026, evidence: [proj-quizwell]}
+  - {name: SQLite, depth: project, last_used: 2026, evidence: [proj-tracklight]}
+  - {name: Streamlit, depth: project, last_used: 2026, evidence: [proj-studymate]}
+
+languages:
+  - {name: English, proficiency: fluent}

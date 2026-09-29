@@ -16,12 +16,12 @@ from dotenv import load_dotenv
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from lodestar.db import JobStatus, connect, get_status, init_db
+from lodestar.db import JobStatus, connect, get_latest_fit_result, get_status, init_db
 from lodestar.db import get_job as db_get_job
 from lodestar.ingest import ExtractionError, IngestResult
 from lodestar.ingest import ingest_url as run_ingest
 from lodestar.paths import PROJECT_ROOT, profile_path
-from lodestar.schemas import JobPosting, Profile, load_profile
+from lodestar.schemas import FitResult, JobPosting, Profile, load_profile
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +29,8 @@ mcp = MCPServer(
     "lodestar",
     instructions=(
         "Lodestar job-search data. Use ingest_url to add a job posting by URL, "
-        "get_job to read a saved posting by job_id, and get_profile to read the candidate's profile."
+        "get_job to read a saved posting by job_id, get_fit_analysis to read its latest fit analysis, "
+        "and get_profile to read the candidate's profile."
     ),
 )
 
@@ -72,6 +73,18 @@ def get_job(job_id: str) -> JobRecord:
         if job is None:
             raise ToolError(f"job {job_id} not found")
         return JobRecord(**job.model_dump(), status=get_status(conn, job_id))
+
+
+@mcp.tool()
+def get_fit_analysis(job_id: str) -> FitResult:
+    """Return the latest fit analysis for a saved job: each requirement with its priority,
+    match level (direct / related / gap), the profile evidence ids and the explanation, plus
+    the summary, score and recommendation."""
+    with _db() as conn:
+        latest = get_latest_fit_result(conn, job_id)
+    if latest is None:
+        raise ToolError(f"job {job_id} has no fit analysis")
+    return latest[1]
 
 
 @mcp.tool()

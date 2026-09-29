@@ -8,6 +8,11 @@ from lodestar.db import DecisionError
 from lodestar.ui.components import RECOMMENDATION_LABEL, money, requirements_table
 
 LABEL_TO_REC = {v: k for k, v in RECOMMENDATION_LABEL.items()}
+DEMO_TIP = "Disabled in the demo. In the real app this {what}."
+
+
+def _demo() -> bool:
+    return service.demo_mode()
 
 
 # --- Review ---------------------------------------------------------------------------
@@ -58,11 +63,12 @@ def _detail(job_id: str, ids: list[str]) -> None:
 
     note = st.text_input("Note (optional)", key=f"note_{job_id}")
     a, r, s, _ = st.columns([1, 1, 1, 4])
-    if a.button("Approve", type="primary", key="approve"):
+    demo, tip = _demo(), DEMO_TIP.format(what="records your decision")
+    if a.button("Approve", type="primary", key="approve", disabled=demo, help=tip if demo else None):
         _decide(job_id, "approve", note, ids)
-    if r.button("Reject", key="reject"):
+    if r.button("Reject", key="reject", disabled=demo, help=tip if demo else None):
         _decide(job_id, "reject", note, ids)
-    if s.button("Skip for now", key="skip"):
+    if s.button("Skip for now", key="skip", disabled=demo, help=tip if demo else None):
         _decide(job_id, "skip", note, ids)
 
 
@@ -120,8 +126,9 @@ def review_page() -> None:
         with st.expander(f"Blocked: {len(blocked)} job(s) you can't apply to"):
             for i in blocked:
                 st.markdown(f"**{i.company or '?'}**, {i.title}: {'; '.join(i.blocked_by)}")
-            sure = st.checkbox("Reject all of these, with the reason as the note", key="confirm_blocked")
-            if st.button("Reject blocked jobs", disabled=not sure, key="reject_blocked"):
+            sure = st.checkbox("Reject all of these, with the reason as the note", key="confirm_blocked",
+                               disabled=_demo())
+            if st.button("Reject blocked jobs", disabled=not sure or _demo(), key="reject_blocked"):
                 result = service.reject_blocked(i.job_id for i in blocked)
                 st.toast(f"Rejected {result.done}")
                 st.rerun()
@@ -178,20 +185,26 @@ def _run_bar() -> None:
     """One row: Find new postings | jobs to analyze | Analyze | status."""
     from lodestar.fit_agent.client import agent_status
 
-    running, status = agent_status()
+    demo = _demo()
+    running, status = (False, "") if demo else agent_status()
     money_today = service.spending()
     find, count, go, info = st.columns([1.3, 0.9, 1.3, 4.5], vertical_alignment="center")
-    if find.button("Find new postings", key="discover", help="Lists your watched boards. No LLM, no cost."):
+    find_help = (DEMO_TIP.format(what="lists your watched job boards (no LLM, no cost)") if demo
+                 else "Lists your watched boards. No LLM, no cost.")
+    if find.button("Find new postings", key="discover", help=find_help, disabled=demo):
         _discover()
         st.session_state["queue_table_version"] = st.session_state.get("queue_table_version", 0) + 1
         st.rerun()
     budget = count.number_input("Jobs to analyze", min_value=1, max_value=20, value=3, key="budget",
                                 label_visibility="collapsed")
-    if go.button(f"Analyze next {budget}", type="primary", key="analyze", disabled=not running):
+    analyze_help = DEMO_TIP.format(what="sends the top jobs to the fit agent") if demo else None
+    if go.button(f"Analyze next {budget}", type="primary", key="analyze", disabled=demo or not running,
+                 help=analyze_help):
         _analyze(int(budget))
         st.session_state["queue_table_version"] = st.session_state.get("queue_table_version", 0) + 1
         st.rerun()
-    agent = "Fit agent running." if running else status + "."
+    agent = ("Demo: finding and analyzing are disabled." if demo
+             else "Fit agent running." if running else status + ".")
     info.caption(_escape(f"{agent} Paid models today: ${money_today.paid_today_usd:.2f} spent of "
                          f"${money_today.paid_limit_usd:.2f} allowed."))
     _show_last_run()
@@ -241,7 +254,8 @@ def queue_page() -> None:
     rows = event.selection.rows if event and event.selection else []
     if rows:
         reason = st.text_input("Reason", value="not interested", key="dismiss_reason")
-        if st.button(f"Dismiss {len(rows)} selected without analyzing", key="dismiss"):
+        if st.button(f"Dismiss {len(rows)} selected without analyzing", key="dismiss", disabled=_demo(),
+                     help=DEMO_TIP.format(what="rejects them without analysis") if _demo() else None):
             result = service.dismiss([ranked[r].job_id for r in rows], reason)
             st.session_state["queue_table_version"] = st.session_state.get("queue_table_version", 0) + 1
             st.toast(f"Dismissed {result.done}")
@@ -250,27 +264,86 @@ def queue_page() -> None:
 
 # --- Decisions -------------------------------------------------------------------------
 
-def _decision_table(items) -> None:
-    if not items:
-        st.info("None yet.")
-        return
-    df = pd.DataFrame([{
+def _decision_frame(items) -> pd.DataFrame:
+    return pd.DataFrame([{
         "Decided": i.decided_at.strftime("%b %d"), "Company": i.company or "?", "Title": i.title,
+        "Resume": "yes" if i.has_resume else "",
         "Note": ("dismissed: " if i.dismissed else "") + (i.note or ""),
         "Agent": RECOMMENDATION_LABEL.get(i.recommendation, "not analyzed"),
         "Skill fit": round(i.score, 2) if i.score is not None else None, "Posting": i.url,
     } for i in items])
-    st.dataframe(df, hide_index=True, width="stretch",
-                 column_config={"Posting": st.column_config.LinkColumn(display_text="Open")})
+
+
+DECISION_COLUMNS = {
+    "Decided": st.column_config.TextColumn(width=70),
+    "Company": st.column_config.TextColumn(width="small"),
+    "Title": st.column_config.TextColumn(width="large"),
+    "Resume": st.column_config.TextColumn(width=65),
+    "Note": st.column_config.TextColumn(width="medium"),
+    "Posting": st.column_config.LinkColumn(display_text="Open", width=60),
+}
+
+
+def _resume_panel(item) -> None:
+    from lodestar.fit_agent.client import agent_status, resume_agent_url
+
+    st.subheader(f"Resume for {item.company or '?'}, {item.title}")
+    demo = _demo()
+    running = False if demo else agent_status(resume_agent_url())[0]
+    view = service.resume_view(item.job_id)
+    label = "Tailor again" if view else "Tailor resume"
+    tip = (DEMO_TIP.format(what="asks the resume agent for a draft") if demo
+           else None if running else "Start the agents with `uv run lodestar-agent`.")
+    if st.button(label, type="primary", key="tailor", disabled=demo or not running, help=tip):
+        with st.status("Drafting a resume from your profile...", expanded=False) as box:
+            try:
+                view = service.tailor(item.job_id)
+                box.update(label="Resume drafted and checked against your profile", state="complete")
+            except ValueError as e:
+                box.update(label="Couldn't draft a resume", state="error")
+                st.error(_escape(str(e)))
+    if not running and not demo:
+        st.caption("The resume agent isn't running: start it with `uv run lodestar-agent`.")
+    if view is None:
+        st.info("No resume yet for this job.")
+        return
+    st.caption(f"Version from {view.created_at.strftime('%b %d %H:%M')}, drafted by {view.model or '?'}. "
+               "Every line was checked against your profile; read it before sending.")
+    docx = service.resume_docx(item.job_id)
+    left, right, _ = st.columns([1, 1, 4])
+    left.download_button("Download .docx", docx, file_name=f"{view.filename}.docx", key="dl_docx",
+                         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    right.download_button("Download .md", view.markdown, file_name=f"{view.filename}.md", key="dl_md",
+                          mime="text/markdown")
+    if view.notes:
+        with st.expander("Notes: what the agent didn't claim", expanded=True):
+            for note in view.notes:
+                st.markdown(f"- {_escape(note)}")
+    with st.container(border=True):
+        st.markdown(_escape(view.markdown))
 
 
 def decisions_page() -> None:
     st.title("Decisions")
-    approved, rejected = st.tabs(["Approved: your apply list", "Rejected"])
-    with approved:
-        _decision_table(service.decisions("approve"))
-    with rejected:
-        _decision_table(service.decisions("reject"))
+    approved_tab, rejected_tab = st.tabs(["Approved: your apply list", "Rejected"])
+    with approved_tab:
+        approved = service.decisions("approve")
+        if not approved:
+            st.info("None yet.")
+        else:
+            st.caption("Select a job to draft or download its tailored resume.")
+            event = st.dataframe(_decision_frame(approved), hide_index=True, width="stretch", on_select="rerun",
+                                 selection_mode="single-row", column_config=DECISION_COLUMNS, key="approved_table",
+                                 selection_default={"selection": {"rows": [0]}})
+            rows = event.selection.rows if event and event.selection else []
+            st.divider()
+            _resume_panel(approved[rows[0] if rows else 0])  # the first job is shown until you pick one
+    with rejected_tab:
+        rejected = service.decisions("reject")
+        if not rejected:
+            st.info("None yet.")
+        else:
+            st.dataframe(_decision_frame(rejected), hide_index=True, width="stretch", column_config=DECISION_COLUMNS)
 
 
 # --- Usage --------------------------------------------------------------------------------

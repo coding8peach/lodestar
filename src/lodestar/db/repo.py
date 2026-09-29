@@ -262,3 +262,31 @@ def record_decision(
     if decision == "skip":
         return None
     return save_decision(conn, fit_id, decision, note or None)
+
+
+
+def save_resume(conn: sqlite3.Connection, resume, model: str | None, prompt_version: str | None,
+                run_id: int | None = None) -> int:
+    """Store a checked TailoredResume; the first resume moves an approved job to resume_tailored."""
+    latest = get_latest_fit_result(conn, resume.job_id)
+    with conn:
+        if get_status(conn, resume.job_id) == "approved":
+            transition(conn, resume.job_id, "resume_tailored")
+        cur = conn.execute(
+            "INSERT INTO resumes (job_id, fit_result_id, content, model, prompt_version, created_at, run_id)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (resume.job_id, latest[0] if latest else None, resume.model_dump_json(), model, prompt_version,
+             now_utc(), run_id),
+        )
+    return cur.lastrowid
+
+
+def get_latest_resume(conn: sqlite3.Connection, job_id: str):
+    """(resume id, TailoredResume, model, created_at) of the newest resume for a job, or None."""
+    from lodestar.schemas.resume import TailoredResume
+
+    row = conn.execute("SELECT id, content, model, created_at FROM resumes WHERE job_id = ? ORDER BY id DESC LIMIT 1",
+                       (job_id,)).fetchone()
+    if row is None:
+        return None
+    return row["id"], TailoredResume.model_validate_json(row["content"]), row["model"], row["created_at"]

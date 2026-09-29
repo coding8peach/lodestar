@@ -7,6 +7,7 @@
     uv run lodestar review [--limit N]         decide on analyzed jobs, best first
     uv run lodestar review --dismiss JOB_ID    reject a queued job without analyzing it
     uv run lodestar ui                         open the local web UI (Review, Queue, Decisions, Usage)
+    uv run lodestar tailor JOB_ID              draft a resume tailored to an approved job
 
 The fit agent runs as its own service; start it first in another terminal:
     uv run lodestar-agent
@@ -339,6 +340,33 @@ def review_cmd(argv: list[str]) -> int:
     return 0
 
 
+def tailor_cmd(argv: list[str]) -> int:
+    from lodestar.app import service
+
+    parser = argparse.ArgumentParser(prog="lodestar tailor",
+                                     description="Draft a resume tailored to an approved job (resume agent).")
+    parser.add_argument("job_id")
+    args = parser.parse_args(argv)
+    out = report_logger()
+    try:
+        view = service.tailor(args.job_id)
+    except ValueError as e:
+        out.info(f"can't tailor: {e}")
+        return 1
+    folder = DATA_DIR / "resumes"
+    folder.mkdir(parents=True, exist_ok=True)
+    md, docx = folder / f"{view.filename}.md", folder / f"{view.filename}.docx"
+    md.write_text(view.markdown, encoding="utf-8")
+    docx.write_bytes(service.resume_docx(args.job_id))
+    out.info(view.markdown)
+    if view.notes:
+        out.info("Notes (not on the resume):")
+        for note in view.notes:
+            out.info(f"  - {note}")
+    out.info(f"\nsaved {md} and {docx} (by {view.model})")
+    return 0
+
+
 def ui_cmd(argv: list[str]) -> int:
     import subprocess
     from pathlib import Path
@@ -367,6 +395,8 @@ def main() -> int:
         return review_cmd(sys.argv[2:])
     if len(sys.argv) > 1 and sys.argv[1] == "ui":
         return ui_cmd(sys.argv[2:])
+    if len(sys.argv) > 1 and sys.argv[1] == "tailor":
+        return tailor_cmd(sys.argv[2:])
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("url", help="a single job posting URL")
     args = parser.parse_args()

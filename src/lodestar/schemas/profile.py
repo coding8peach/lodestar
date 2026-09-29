@@ -81,9 +81,19 @@ class SpokenLanguage(_Strict):
     proficiency: Literal["native", "fluent", "professional", "conversational", "basic"]
 
 
+class Contact(_Strict):
+    """Resume header details. Filled in by Python on resumes, never by an agent."""
+
+    email: str | None = None
+    phone: str | None = None
+    location: str | None = None
+    links: dict[str, str] = {}     # e.g. {github: https://github.com/..., linkedin: ...}
+
+
 class Profile(_Strict):
     name: str
     summary: str
+    contact: Contact | None = None
     targets: TargetPreferences
     experience: list[Experience] = []
     projects: list[Project] = []

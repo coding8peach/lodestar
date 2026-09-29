@@ -6,16 +6,20 @@ resume for approved jobs. This is a restart (v2) of an earlier version, rebuilt
 around LangGraph, Google ADK, A2A, and MCP, where each technology has a real job.
 
 **Status:** v0 complete (one round trip). v0.x (fit quality) mostly done. v1 first slice
-complete: watchlist discovery → pre-filter → ranking → budgeted analysis → review, with
-usage and cost tracking. The daily loop:
+complete (watchlist discovery → pre-filter → ranking → budgeted analysis → review, usage
+and cost tracking). Local Streamlit UI with the whole loop. v2 first slice complete (resume agent). Demo mode
+built. Goal: deploy the read-only demo as a portfolio project (GitHub: coding8peach/lodestar).
+
+The daily loop, in the UI:
 
 ```bash
 uv run lodestar-agent        # terminal 1: fit agent service (A2A, port 8001)
-uv run lodestar discover     # free: new postings from watched boards, pre-filtered, queued
-uv run lodestar analyze      # rank the queue (no LLM), analyze the top 3 on free models
-uv run lodestar review       # decide, best first
-uv run lodestar usage        # calls, tokens, estimated cost
+uv run lodestar ui           # terminal 2: browser UI at localhost:8501
 ```
+
+Queue → Find new postings (free) → Analyze next N → Review → decide → Decisions
+(Approved = apply list) → select a job → Tailor resume → download .docx / .md. The same steps from the terminal: `lodestar discover`,
+`lodestar analyze`, `lodestar review`, `lodestar usage`.
 
 ## Architecture
 
@@ -117,7 +121,9 @@ Layers, outside in (`src/lodestar/fit_agent/`):
   (`LODESTAR_FIT_MODELS`); each attempt is a fresh agent, session and MCP
   connection on one model. Rate limit / size limit / outage at any turn → start
   over on the next model. Other errors are raised. Bad JSON → one retry on the
-  same model.
+  same model. A temporary overload (503 "high demand", 529) first retries the same model
+  after 5 s and 15 s (`OVERLOAD_RETRY_DELAYS`); rate limits and quotas (429) fall back
+  immediately. Every attempt is recorded in usage.
 - `agent.py` — the `LlmAgent`: instruction, `McpToolset` limited to `get_job` and
   `get_profile`, and `compact_tool_result` (MCP results carry the data twice;
   keep the structured copy, drop empty and bookkeeping fields: ~65% smaller).
@@ -251,6 +257,55 @@ $0, list-price estimate still shown). Unknown prices are NULL and reported, neve
 Measured: one analysis ≈ 2 calls, ~9.5–9.8K input and ~0.7–0.9K output tokens, ~7 s;
 ≈ $0.0035 list on gemini-3.1-flash-lite (free tier: $0); ≈ $0.003 est. on gpt-5.4-nano.
 
+## Service layer and UI
+
+`src/lodestar/app/`: `models.py` (Pydantic view models: ReviewItem, JobDetail, QueueItem,
+Funnel, DecisionItem, UsageRow, BulkResult, DiscoverySummary, BatchResult, Spending) and
+`service.py` (plain functions: review_queue, job_detail, record_decision, reject_blocked,
+dismiss, ranked_queue, funnel, decisions, usage, spending, discover, analyze_next). This
+is the only thing a UI calls; the CLI's discover/analyze/review use it too. Designed so a
+FastAPI layer would be a thin wrapper (one endpoint per function, models as schemas).
+
+`record_decision` (db/repo.py) is the single place decisions are saved: workflow review
+node, `lodestar review`, and the UI all use it.
+
+`src/lodestar/ui/` (Streamlit, `uv run lodestar ui`, localhost only): Review (filters,
+table, detail with colored requirements, Approve/Reject/Skip, blocked section), Queue
+(funnel, Find new postings, Analyze next N with agent status and paid spend, ranked queue,
+Dismiss), Decisions (Approved = apply list, Rejected incl. dismissed), Usage. Pages call
+only `app/service.py`. Retries inside the fit agent aren't shown live (A2A returns once);
+streaming progress over A2A would be a separate change. Tests use Streamlit's AppTest.
+
+## Resume tailoring (v2)
+
+A second ADK agent (`resume_agent/`), served by the same `lodestar-agent` process on port 8002
+(fit agent on 8001). It reads `get_job`, `get_profile` and `get_fit_analysis` (MCP, read-only)
+and returns a `TailoredResume` (schemas/resume.py): headline, summary, skills, experience and
+project entries by id with reworded highlights, and notes for the candidate. Every line cites
+profile entry ids. It selects, orders and rewords; it never invents.
+
+Python (resume/validate.py) rejects: unknown entries or sources, skills not in the profile,
+numbers not in the cited sources ("N+ years" allowed within the career span), claim words
+("proven", "high-scale", "expert", ...) not in the sources or profile summary, and
+placeholders. One retry lists the problems. Roles since 2006 left out are added back by
+Python. Facts (name, contact, titles, companies, dates, education) are filled in from the
+profile by id (resume/assemble.py); placeholders in the profile block saving. Rendered to
+Markdown and Word (resume/render.py, US Letter, single column). Stored in `resumes`
+(schema v7; versions kept); the first resume moves the job approved → resume_tailored.
+Both agents share `run_with_fallback` (fit_agent/runner.py). Prompt versions: fit v2c,
+resume r2. Limitation: the checks can't catch subtle overstatement in a reworded true line;
+the candidate reads every resume.
+
+## Demo mode
+
+`LODESTAR_DEMO=1`: banner on every page; every action that calls an LLM, fetches boards or
+writes data is disabled in the UI and refused by the service layer (`DemoReadOnly`). Demo
+data: `demo/profile.yaml` (fictional Morgan Lee, mirroring a backend-to-agents career),
+`demo/postings.yaml` (16 fictional postings: 12 pass the pre-filter, incl. a UK-only one that
+comes out blocked, a frontend-heavy one, and a Senior/Staff near-duplicate pair).
+`uv run python demo/build_demo.py` runs the real pre-filter, fit agent and resume agent
+in-process and writes `demo/demo.sqlite` (committed; single file).
+
 ## Workflow (`src/lodestar/workflow/`)
 
 `START → ingest → analyze → review → END` for a URL; started with a `job_id` (as
@@ -269,6 +324,9 @@ uv run lodestar discover [--dry-run] [--recheck]
 uv run lodestar analyze [--budget N] [--dry-run]
 uv run lodestar review [--limit N] | --dismiss JOB_ID [--reason TEXT]
 uv run lodestar usage [--by run|day|model]
+uv run lodestar ui                    # local web UI
+uv run lodestar tailor JOB_ID         # resume for an approved job → data/resumes/
+LODESTAR_DEMO=1 LODESTAR_DB=demo/demo.sqlite LODESTAR_PROFILE=demo/profile.yaml uv run lodestar ui
 ```
 
 Config (`config/`, committed): `watchlist.yaml`, `filters.yaml` (pre-filter + ranking),
@@ -342,9 +400,14 @@ lodestar/
 │   ├── ingest/         # fetch, classify, ATS adapters, extract, validate, ingest_url
 │   ├── mcp_server/     # Lodestar MCP server → uv run lodestar-mcp; launch params; tool client
 │   ├── fit_agent/      # FitService + to_a2a → uv run lodestar-agent (port 8001); A2A client
-│   ├── workflow/       # LangGraph graph + terminal review → uv run lodestar
+│   ├── workflow/       # LangGraph graph, analyze_one, CLI → uv run lodestar
+│   ├── resume_agent/   # resume agent (ADK) + A2A service
+│   ├── resume/         # resume checks, assembly, rendering
+│   ├── app/            # service layer: models + functions any UI calls
+│   ├── ui/             # Streamlit pages → uv run lodestar ui
 │   ├── scoring.py, ranking.py, pricing.py, report.py, paths.py, quiet.py
 ├── config/             # watchlist.yaml, filters.yaml, prices.yaml
+├── demo/               # fictional profile + postings, build_demo.py, demo.sqlite
 ├── eval/               # golden dataset and eval tools
 ├── reference/          # course examples (read-only)
 ├── data/               # gitignored: profile.yaml, lodestar.sqlite, logs/
@@ -367,6 +430,18 @@ in the analyze node, so the workflow was proven before the transport changed).
 1 usage and cost tracking → 2 watchlist + board listing + dedupe + pre-filter
 (`discover`) → 3 ranking + budgeted batch analysis + paid-spend guard (`analyze`) →
 4 review of analyzed jobs + dismiss (`review`).
+
+## Build history (UI)
+
+A service layer (+ record_decision consolidation) → B Streamlit Phase 1 (see and decide) →
+Phase 2 (Find / Analyze from the UI; CLI discover/analyze refactored onto the service
+layer; company backfill for known jobs) → layout and Arrow fixes → overload retry.
+
+## Portfolio plan
+
+1 git + GitHub (done; ignored: data/, .env, eval/jobs/, eval/runs/, eval/expected.yaml,
+reference/) → 2 v2 resume tailoring (done) → 3 demo mode + demo data + README (done; README
+needs screenshots in docs/screenshots/) → 4 deploy the read-only demo on Render.
 
 ## v0.x: remaining
 
@@ -421,9 +496,10 @@ watchlist upkeep from discovery stats.
 - **v0.x — fit quality** (mostly done; see "v0.x: remaining").
 - **v1 — finding jobs at volume:** first slice done (watchlist discovery, pre-filter,
   ranking, budgeted analysis, review, usage). Further items listed above, optional.
-- **v2 — applying:** resume parsing into `profile.draft.yaml`, resume tailoring
-  for approved jobs (`resume_tailored → ready_to_apply → applied`).
-- **v3 — insight:** gap report, skill suggestions from gaps, agreement metrics, UI.
+- **v2 — applying:** resume tailoring (first slice done). Later: resume parsing into
+  `profile.draft.yaml`, `ready_to_apply → applied` tracking.
+- **v3 — insight:** gap report, skill suggestions from gaps, agreement metrics;
+  FastAPI + React over the service layer if the UI becomes a portfolio piece.
 
 ## Conventions
 

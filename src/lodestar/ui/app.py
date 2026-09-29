@@ -21,6 +21,13 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+from lodestar.app.service import demo_mode  # noqa: E402
+
+if demo_mode():
+    st.info("**Demo:** a fictional candidate and fictional job postings, analyzed by the real agents. "
+            "Actions that call an LLM, fetch job boards or change data are disabled. "
+            "Source: [github.com/coding8peach/lodestar](https://github.com/coding8peach/lodestar)")
+
 st.navigation([
     st.Page(review_page, title="Review", url_path="review", default=True),
     st.Page(queue_page, title="Queue", url_path="queue"),

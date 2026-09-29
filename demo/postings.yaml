@@ -1,0 +1,278 @@
+# Fictional job postings for the Lodestar demo. Companies, people and details are made up.
+# build_demo.py runs them through the real pre-filter, the real fit agent and the real
+# resume agent, so the demo shows genuine output.
+
+- company: Harborline
+  title: Senior Backend Engineer (Python)
+  location: San Francisco, CA (Hybrid)
+  work_mode: hybrid
+  salary_text: USD 175,000–215,000 / YEAR
+  description: |
+    Harborline builds scheduling and dispatch software for regional ferry and shuttle operators.
+    We're hiring a Senior Backend Engineer to own services behind our operator dashboard and
+    public booking APIs.
+
+    What you'll do
+    - Design and build REST APIs in Python (FastAPI) backed by PostgreSQL
+    - Own data models for schedules, vessels and bookings, and the migrations that change them
+    - Improve reliability: tests, observability, and on-call for the services you own
+    - Work with our two frontend engineers on API contracts for the React dashboard
+
+    What we're looking for
+    - 6+ years building backend services in production
+    - Strong Python, or deep experience in another backend language and willingness to switch
+    - Solid relational database skills (PostgreSQL preferred)
+    - Experience designing and versioning public APIs
+    - Nice to have: AWS, event-driven systems, transportation or logistics domain
+
+    Hybrid: 2 days a week in our San Francisco office.
+
+- company: Tessellate AI
+  title: Senior Software Engineer, Agent Platform
+  location: San Francisco, CA
+  work_mode: hybrid
+  salary_text: USD 190,000–240,000 / YEAR
+  description: |
+    Tessellate AI helps finance teams automate close and reconciliation with AI agents. The Agent
+    Platform team builds the runtime our agents run on: tool calling, evaluation and guardrails.
+
+    Responsibilities
+    - Build and operate the agent runtime in Python: tool integrations, retries, model fallback
+    - Expose internal systems to agents through MCP servers with clear, typed tools
+    - Build evaluation pipelines that measure agent quality against labeled datasets
+    - Partner with product teams shipping agent features to customers
+
+    Requirements
+    - 5+ years of backend engineering experience
+    - Python in production
+    - Hands-on experience building LLM or agent systems (frameworks such as LangGraph or ADK a plus)
+    - Comfort with SQL and data modeling
+    - Nice to have: MCP, A2A, experience evaluating LLM output
+
+    We work hybrid from our San Francisco office three days a week.
+
+- company: Tessellate AI
+  title: Staff Software Engineer, Agent Platform
+  location: San Francisco, CA
+  work_mode: hybrid
+  salary_text: USD 230,000–285,000 / YEAR
+  description: |
+    Tessellate AI helps finance teams automate close and reconciliation with AI agents. As a Staff
+    engineer on Agent Platform you'll set technical direction for the agent runtime, evaluation and
+    guardrails, and mentor engineers across the team.
+
+    Requirements
+    - 8+ years of backend engineering, including technical leadership of multi-team projects
+    - Python in production
+    - Experience building LLM or agent systems
+    - Strong system design and data modeling skills
+    - Nice to have: MCP, A2A, LangGraph or ADK, evaluation of LLM systems
+
+    Hybrid: three days a week in San Francisco.
+
+- company: Quillstack
+  title: Staff Backend Engineer, Data Platform
+  location: Remote - United States
+  work_mode: remote
+  salary_text: USD 200,000–250,000 / YEAR
+  description: |
+    Quillstack is a document collaboration platform used by legal teams. The Data Platform team
+    owns ingestion, storage and search for billions of document revisions.
+
+    You will
+    - Lead design of the ingestion pipeline and storage layer
+    - Build services in Java or Kotlin on PostgreSQL and Kafka
+    - Drive reliability and performance work across the platform
+
+    You have
+    - 8+ years of backend experience, with deep Java or Kotlin
+    - Experience with Kafka or similar streaming systems
+    - Experience running large PostgreSQL deployments
+    - Experience leading technical projects across teams
+    - Nice to have: Elasticsearch, Kubernetes
+
+    Fully remote within the United States.
+
+- company: Meridian Health Data
+  title: Senior Full Stack Engineer
+  location: Remote - United States
+  work_mode: remote
+  salary_text: USD 165,000–200,000 / YEAR
+  description: |
+    Meridian Health Data builds analytics tools for community clinics. We're looking for a Senior
+    Full Stack Engineer to build features end to end.
+
+    What you'll work on
+    - React and TypeScript front end for clinic dashboards
+    - Python services and PostgreSQL behind them
+    - Data grids and reporting views for large patient-population datasets
+
+    Requirements
+    - 5+ years of full-stack experience
+    - React in production, TypeScript preferred
+    - Python or another backend language
+    - SQL
+    - Nice to have: healthcare data, HIPAA experience, AG Grid
+
+    Remote within the US; must work US Pacific or Mountain hours.
+
+- company: Fieldnote
+  title: Senior Software Engineer, Integrations
+  location: Oakland, CA (Hybrid)
+  work_mode: hybrid
+  description: |
+    Fieldnote is a field-service platform for HVAC and plumbing companies. The Integrations team
+    connects Fieldnote to accounting, payroll and parts suppliers.
+
+    You will
+    - Build and maintain integrations with third-party APIs (REST, webhooks, some SOAP)
+    - Design our public integration API and its documentation
+    - Build sync jobs that are safe to retry, and the tests that prove it
+
+    You have
+    - 5+ years of backend experience
+    - Experience integrating with many external APIs
+    - Python or Node.js
+    - Relational databases
+    - Nice to have: accounting systems, message queues
+
+    Hybrid from our Oakland office twice a week.
+
+- company: Arcadia Games
+  title: Senior Software Engineer, Web Client
+  location: San Francisco, CA
+  work_mode: hybrid
+  description: |
+    Arcadia Games makes browser-based strategy games. The Web Client team builds the game UI that
+    millions of players use every week.
+
+    Responsibilities
+    - Build game UI in React and TypeScript with a custom WebGL rendering layer
+    - Own client performance: frame rates, bundle size, load time
+    - Build and maintain our component library and design system with our designers
+    - Implement animations and responsive layouts in CSS
+
+    Requirements
+    - 5+ years of frontend engineering
+    - Expert React and TypeScript
+    - Experience with WebGL, canvas or game engines
+    - Strong CSS and design system experience
+
+- company: Beacon Payments
+  title: Senior Backend Engineer (Go)
+  location: San Francisco, CA (Hybrid)
+  work_mode: hybrid
+  salary_text: USD 185,000–225,000 / YEAR
+  description: |
+    Beacon Payments processes payments for independent retailers. We're hiring a Senior Backend
+    Engineer for our ledger and settlement services.
+
+    What you'll do
+    - Build services in Go that move money correctly: idempotency, reconciliation, audit trails
+    - Design schemas in PostgreSQL for ledgers and settlements
+    - Improve testing and observability across payment flows
+
+    What you bring
+    - 6+ years of backend engineering
+    - Go in production, or strong Java or C++ and eagerness to learn Go
+    - Relational database design
+    - Nice to have: payments or fintech, gRPC
+
+- company: Driftwood Analytics
+  title: Senior Backend Engineer
+  location: Remote
+  work_mode: remote
+  description: |
+    Driftwood Analytics builds forecasting tools for retailers across Europe.
+
+    Please note: this role is open only to candidates based in the United Kingdom with the right
+    to work in the UK. You'll join our London team in person one day a week.
+
+    What you'll do
+    - Build Python services for our forecasting pipeline on PostgreSQL
+    - Design APIs consumed by our web app and customer integrations
+    - Improve data quality checks and pipeline reliability
+
+    Requirements
+    - 5+ years of backend experience
+    - Python and SQL
+    - Experience with data pipelines
+
+- company: Vantage Logistics
+  title: Senior Software Engineer, Routing
+  location: Palo Alto, CA
+  work_mode: hybrid
+  description: |
+    Vantage Logistics plans delivery routes for regional carriers. The Routing team owns the route
+    optimization services and the APIs that dispatch systems call.
+
+    You will
+    - Build services in Java (Spring Boot) on PostgreSQL
+    - Improve route optimization algorithms and their performance
+    - Build REST APIs used by dispatch and driver apps
+
+    You have
+    - 5+ years of backend engineering in Java
+    - Strong algorithms and data structures
+    - SQL and data modeling
+    - Nice to have: operations research, geospatial data
+
+    Hybrid, three days a week in Palo Alto.
+
+- company: Kestrel Systems
+  title: Senior Software Engineer, Developer Tools
+  location: Remote - United States
+  work_mode: remote
+  description: |
+    Kestrel Systems builds CI and release tooling for large engineering organizations.
+
+    What you'll do
+    - Build CLI tools and services in Python that engineers use every day
+    - Improve our test infrastructure: parallel runs, flaky-test detection, reporting
+    - Integrate with GitHub, build systems and artifact stores
+
+    Requirements
+    - 5+ years of software engineering
+    - Python in production
+    - Experience with CI systems and test infrastructure
+    - Nice to have: Kubernetes, build systems like Bazel
+
+- company: Lumen Learning Labs
+  title: Senior AI Engineer, Tutoring
+  location: San Francisco, CA
+  work_mode: hybrid
+  description: |
+    Lumen Learning Labs builds AI tutors for high-school math and reading.
+
+    Responsibilities
+    - Build LLM-backed tutoring features in Python: prompting, tool use, grounding in our content
+    - Build evaluation sets and pipelines to measure tutoring quality
+    - Work with learning scientists on how the tutor asks and answers questions
+
+    Requirements
+    - 5+ years of software engineering
+    - Python
+    - Experience building LLM applications
+    - Nice to have: education products, SAT or test-prep content, MCP
+
+# --- postings the pre-filter drops (so the funnel shows real filtering) ---
+
+- company: Harborline
+  title: Senior iOS Engineer
+  location: San Francisco, CA
+  description: Build our iOS booking app in Swift and SwiftUI. 5+ years of iOS development. Experience with offline sync and push notifications. Hybrid in San Francisco two days a week; work closely with product and design on the rider experience.
+
+- company: Tessellate AI
+  title: Solutions Engineer
+  location: San Francisco, CA
+  description: Partner with our sales team to run technical evaluations of Tessellate AI for finance teams. Build demos and proof-of-concept integrations, answer security questionnaires, and help customers succeed after they buy. 4+ years in solutions or sales engineering.
+
+- company: Quillstack
+  title: Engineering Manager, Platform
+  location: Remote - United States
+  description: Lead a team of eight engineers across storage and search. Hire, coach and grow engineers; own delivery and operational health for the platform; partner with product on the roadmap. 3+ years managing backend engineering teams.
+
+- company: Beacon Payments
+  title: Staff Engineer, Payments
+  location: London, UK
+  description: Lead technical direction for card-present payments in our London office. 8+ years of backend engineering with payments experience; Go or Java; experience with card networks and PCI requirements. Five days a week in London.

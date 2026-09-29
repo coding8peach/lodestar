@@ -9,8 +9,9 @@ history started by one can't safely be continued by another.
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from typing import Any
 
 from google.adk.models.base_llm import BaseLlm
 from google.adk.runners import InMemoryRunner
@@ -86,40 +87,67 @@ async def _ask(runner: InMemoryRunner, session_id: str, text: str) -> tuple[str,
     return final, tokens
 
 
-async def _analyze_with(model: BaseLlm, job_id: str, usage: UsageRecorder | None = None) -> tuple[FitAnalysis, int]:
-    """One complete attempt on one model. A malformed reply gets one retry on the same model."""
-    runner = InMemoryRunner(agent=build_fit_agent(model, usage), app_name=APP_NAME)
+async def _attempt(
+    agent, first_message: str, parse: Callable[[str], Any], retry_on: tuple[type[Exception], ...]
+) -> tuple[Any, int]:
+    """One complete attempt with one agent (one model). A reply that `parse` rejects with one of
+    `retry_on` gets one retry on the same model, with the problem explained."""
+    runner = InMemoryRunner(agent=agent, app_name=APP_NAME)
     try:
         session = await runner.session_service.create_session(app_name=APP_NAME, user_id=USER_ID)
-        text, tokens = await _ask(runner, session.id, f"Analyze the fit for job_id {job_id}.")
+        text, tokens = await _ask(runner, session.id, first_message)
         try:
-            return parse_fit_analysis(text, job_id), tokens
-        except FitParseError as e:
-            log.warning("reply wasn't a valid FitAnalysis (%s); asking once more", e)
-            retry = f"Your reply was not valid: {e}. Reply again with only the JSON object in the required shape."
+            return parse(text), tokens
+        except retry_on as e:
+            log.warning("reply rejected (%s); asking once more", str(e)[:300])
+            retry = (f"Your reply was not accepted: {e}. Fix these problems and reply again with only the "
+                     "JSON object in the required shape.")
             text, more = await _ask(runner, session.id, retry)
-            return parse_fit_analysis(text, job_id), tokens + more  # a second failure is raised
+            return parse(text), tokens + more  # a second failure is raised
     finally:
         await runner.close()
 
 
-async def analyze_job(
-    job_id: str, model_names: list[str], make_model: Callable[[str], BaseLlm] = make_llm
-) -> FitRun:
-    """Try each model in order until one completes the analysis."""
+async def _analyze_with(model: BaseLlm, job_id: str, usage: UsageRecorder | None = None) -> tuple[FitAnalysis, int]:
+    return await _attempt(build_fit_agent(model, usage), f"Analyze the fit for job_id {job_id}.",
+                          lambda text: parse_fit_analysis(text, job_id), (FitParseError,))
+
+
+@dataclass
+class AgentRun:
+    result: Any
+    model: str
+    tokens: int
+    skipped: list[str] = field(default_factory=list)
+    calls: list[LlmCall] = field(default_factory=list)
+
+
+async def run_with_fallback(
+    job_id: str,
+    model_names: list[str],
+    attempt: Callable[[BaseLlm, UsageRecorder], Awaitable[tuple[Any, int]]],
+    make_model: Callable[[str], BaseLlm] = make_llm,
+) -> AgentRun:
+    """Per-run fallback shared by every agent: try each model in order, one whole attempt each.
+
+    A temporary overload retries the same model after OVERLOAD_RETRY_DELAYS; rate limits,
+    size limits and outages move to the next model; other errors are raised. Every model
+    call (including failed attempts) is collected for usage tracking.
+    """
     skipped: list[str] = []
     calls: list[LlmCall] = []
-    for attempt, name in enumerate(validate_model_names(model_names), start=1):
+    for position, name in enumerate(validate_model_names(model_names), start=1):
         native = name.removeprefix("gemini/").startswith("gemini")
         waits = list(OVERLOAD_RETRY_DELAYS)
         while True:
-            log.info("analyzing %s with %s", job_id, name)
-            usage = UsageRecorder(name, attempt, native_gemini=native)
+            log.info("%s: trying %s", job_id, name)
+            usage = UsageRecorder(name, position, native_gemini=native)
             try:
-                analysis, tokens = await _analyze_with(make_model(name), job_id, usage)
+                result, tokens = await attempt(make_model(name), usage)
             except Exception as e:
                 calls += usage.calls
                 if not is_fallback_error(e):
+                    e.calls = calls  # let callers record usage even when the run fails
                     raise
                 reason = describe_error(e)
                 if waits and is_overloaded(e):
@@ -131,5 +159,14 @@ async def analyze_job(
                 skipped.append(f"{name}: {reason}")
                 break
             calls += usage.calls
-            return FitRun(analysis=analysis, model=name, tokens=tokens, skipped=skipped, calls=calls)
+            return AgentRun(result=result, model=name, tokens=tokens, skipped=skipped, calls=calls)
     raise AllModelsFailed("every model failed: " + " | ".join(skipped), calls=calls)
+
+
+async def analyze_job(
+    job_id: str, model_names: list[str], make_model: Callable[[str], BaseLlm] = make_llm
+) -> FitRun:
+    """Analyze one job's fit, falling back to the next model per run."""
+    run = await run_with_fallback(job_id, model_names,
+                                  lambda model, usage: _analyze_with(model, job_id, usage), make_model)
+    return FitRun(analysis=run.result, model=run.model, tokens=run.tokens, skipped=run.skipped, calls=run.calls)

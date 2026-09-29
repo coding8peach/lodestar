@@ -322,5 +322,5 @@ def test_migrates_v5_to_v6(tmp_path):
     conn = connect(path)
     init_db(conn)
     assert conn.execute("SELECT dismissed_reason FROM jobs").fetchone()[0] is None
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 6
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     conn.close()

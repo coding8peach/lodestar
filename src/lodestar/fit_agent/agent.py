@@ -151,11 +151,11 @@ def compact_tool_result(tool, args: dict, tool_context, tool_response: dict) -> 
     return _drop_empty(data)
 
 
-def lodestar_mcp_toolset() -> McpToolset:
-    """The Lodestar MCP server as a stdio subprocess, limited to the read-only tools."""
+def lodestar_mcp_toolset(tools: list[str] | None = None) -> McpToolset:
+    """The Lodestar MCP server as a stdio subprocess, limited to the given read-only tools."""
     return McpToolset(
         connection_params=StdioConnectionParams(server_params=server_params(), timeout=60),
-        tool_filter=FIT_TOOLS,
+        tool_filter=tools or FIT_TOOLS,
         errlog=server_errlog(),  # server logs go to data/logs/mcp_server.log, not our terminal
     )
 
@@ -166,12 +166,17 @@ def _instruction(_ctx) -> str:
     return INSTRUCTION
 
 
+def usage_callbacks(usage) -> dict:
+    """ADK model callbacks for a UsageRecorder (or none)."""
+    if usage is None:
+        return {}
+    return {"before_model_callback": usage.before_model, "after_model_callback": usage.after_model,
+            "on_model_error_callback": usage.on_model_error}
+
+
 def build_fit_agent(model: BaseLlm, usage=None) -> LlmAgent:
     """`usage`, if given, is a UsageRecorder that sees every model call."""
-    callbacks = {}
-    if usage is not None:
-        callbacks = {"before_model_callback": usage.before_model, "after_model_callback": usage.after_model,
-                     "on_model_error_callback": usage.on_model_error}
+    callbacks = usage_callbacks(usage)
     return LlmAgent(
         name="fit_agent",
         description="Judges how well the candidate fits one job posting, requirement by requirement.",

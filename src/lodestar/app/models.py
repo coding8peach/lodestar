@@ -81,6 +81,7 @@ class DecisionItem(BaseModel):
     recommendation: Recommendation | None   # None when dismissed without analysis
     score: float | None
     dismissed: bool = False
+    has_resume: bool = False
 
 
 class UsageRow(BaseModel):
@@ -157,3 +158,13 @@ class BatchResult(BaseModel):
 class Spending(BaseModel):
     paid_limit_usd: float               # LODESTAR_PAID_USD_PER_DAY
     paid_today_usd: float               # actual spend today (free tiers count as $0)
+
+
+class ResumeView(BaseModel):
+    job_id: str
+    resume_id: int
+    model: str | None
+    created_at: datetime
+    markdown: str
+    notes: list[str]
+    filename: str                       # base name for downloads, e.g. "acme-senior-backend-engineer"

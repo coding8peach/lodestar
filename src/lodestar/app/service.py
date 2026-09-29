@@ -16,6 +16,7 @@ from lodestar.app.models import (
     Funnel,
     JobDetail,
     QueueItem,
+    ResumeView,
     ReviewItem,
     SimilarJob,
     Spending,
@@ -41,6 +42,20 @@ from lodestar.paths import profile_path
 from lodestar.ranking import group_key, load_queue, load_rank_config, rank_queue
 from lodestar.schemas import load_profile
 from lodestar.scoring import unmet_hard_constraints
+
+
+class DemoReadOnly(PermissionError):
+    """Demo mode (LODESTAR_DEMO=1) is read-only: nothing is written and no LLM is called."""
+
+
+def demo_mode() -> bool:
+    import os
+    return os.environ.get("LODESTAR_DEMO", "").strip().lower() in ("1", "true", "yes")
+
+
+def _writes_allowed(action: str) -> None:
+    if demo_mode():
+        raise DemoReadOnly(f"{action} is disabled in the demo")
 
 
 def _conn():
@@ -113,12 +128,14 @@ def job_detail(job_id: str) -> JobDetail:
 
 def record_decision(job_id: str, decision: Literal["approve", "reject", "skip"], note: str | None = None) -> None:
     """Raises DecisionError when the job has no analysis or is already decided."""
+    _writes_allowed("deciding")
     with _conn() as conn:
         _record_decision(conn, job_id, decision, note)
 
 
 def reject_blocked(job_ids: Iterable[str]) -> BulkResult:
     """Reject blocked jobs, with the unmet hard constraint as the note."""
+    _writes_allowed("rejecting")
     result = BulkResult(done=0)
     for job_id in job_ids:
         detail = job_detail(job_id)
@@ -135,6 +152,7 @@ def reject_blocked(job_ids: Iterable[str]) -> BulkResult:
 
 def dismiss(job_ids: Iterable[str], reason: str) -> BulkResult:
     """Reject queued jobs without analyzing them."""
+    _writes_allowed("dismissing")
     result = BulkResult(done=0)
     with _conn() as conn:
         for job_id in job_ids:
@@ -173,14 +191,16 @@ def decisions(decision: Literal["approve", "reject"] | None = None) -> list[Deci
     items = []
     with _conn() as conn:
         rows = conn.execute("""
-            SELECT d.decision, d.note, d.created_at, f.recommendation, f.overall_score, j.id, j.title, j.company, j.url
+            SELECT d.decision, d.note, d.created_at, f.recommendation, f.overall_score, j.id, j.title, j.company, j.url,
+                   EXISTS (SELECT 1 FROM resumes r WHERE r.job_id = j.id) AS has_resume
             FROM decisions d JOIN fit_results f ON f.id = d.fit_result_id JOIN jobs j ON j.id = f.job_id
         """).fetchall()
         for r in rows:
             items.append(DecisionItem(job_id=r["id"], company=r["company"], title=r["title"], url=r["url"],
                                       decision=r["decision"], note=r["note"],
                                       decided_at=datetime.fromisoformat(r["created_at"]),
-                                      recommendation=r["recommendation"], score=r["overall_score"]))
+                                      recommendation=r["recommendation"], score=r["overall_score"],
+                                      has_resume=bool(r["has_resume"])))
         for r in conn.execute("SELECT id, title, company, url, dismissed_reason, updated_at FROM jobs "
                               "WHERE status = 'rejected' AND dismissed_reason IS NOT NULL").fetchall():
             items.append(DecisionItem(job_id=r["id"], company=r["company"], title=r["title"], url=r["url"],
@@ -220,6 +240,7 @@ def spending() -> Spending:
 
 def discover(dry_run: bool = False, recheck: bool = False, client=None) -> DiscoverySummary:
     """List watched boards, dedupe, pre-filter, queue passing jobs. No LLM. Same code as `lodestar discover`."""
+    _writes_allowed("finding new postings")
     from lodestar.ingest.discover import discover as run_discover
     from lodestar.ingest.discover import load_watchlist
     from lodestar.ingest.prefilter import load_rules
@@ -245,6 +266,8 @@ def analyze_next(budget: int = 3, on_progress=None, analyze_fn=None) -> BatchRes
 
     from lodestar.db import finish_run, paid_spend_today, start_run
     from lodestar.ranking import pick
+
+    _writes_allowed("analyzing")
     from lodestar.workflow import analysis
 
     limit = spending().paid_limit_usd
@@ -285,3 +308,88 @@ def analyze_next(budget: int = 3, on_progress=None, analyze_fn=None) -> BatchRes
         with _conn() as conn:
             finish_run(conn, run_id, batch.ok, batch.failed)
     return batch
+
+
+
+# --- resumes (v2) ----------------------------------------------------------------------------
+
+TAILORABLE = ("approved", "resume_tailored")
+
+
+def _slug(*parts: str | None) -> str:
+    import re
+
+    text = "-".join(p for p in parts if p).lower()
+    return re.sub(r"[^a-z0-9]+", "-", text).strip("-")[:80] or "resume"
+
+
+def resume_view(job_id: str) -> ResumeView | None:
+    """The newest tailored resume for a job, rendered as Markdown, or None."""
+    from lodestar.db import get_latest_resume
+    from lodestar.resume.assemble import assemble
+    from lodestar.resume.render import to_markdown
+
+    with _conn() as conn:
+        latest = get_latest_resume(conn, job_id)
+        job = get_job(conn, job_id)
+    if latest is None:
+        return None
+    resume_id, resume, model, created_at = latest
+    final = assemble(resume, load_profile(profile_path()))
+    return ResumeView(job_id=job_id, resume_id=resume_id, model=model, created_at=datetime.fromisoformat(created_at),
+                      markdown=to_markdown(final), notes=resume.notes, filename=_slug(job.company, job.title))
+
+
+def resume_docx(job_id: str) -> bytes | None:
+    from lodestar.db import get_latest_resume
+    from lodestar.resume.assemble import assemble
+    from lodestar.resume.render import to_docx
+
+    with _conn() as conn:
+        latest = get_latest_resume(conn, job_id)
+    return None if latest is None else to_docx(assemble(latest[1], load_profile(profile_path())))
+
+
+def tailor(job_id: str, tailor_fn=None) -> ResumeView:
+    """Ask the resume agent for a tailored resume for an approved job, check it against the
+    local profile, store it, and record usage. Raises ValueError with a readable message."""
+    import asyncio
+
+    from lodestar.db import finish_run, paid_spend_today, save_llm_calls, save_resume, start_run
+    from lodestar.fit_agent.client import tailor_via_a2a
+    from lodestar.resume.validate import ResumeRejected, check_resume, profile_placeholders
+    from lodestar.resume_agent.agent import PROMPT_VERSION
+
+    _writes_allowed("tailoring")
+    with _conn() as conn:
+        status = get_status(conn, job_id)
+        if status is None:
+            raise ValueError(f"job {job_id} not found")
+        if status not in TAILORABLE:
+            raise ValueError(f"only approved jobs get a tailored resume (this one is {status})")
+        remaining = max(0.0, spending().paid_limit_usd - paid_spend_today(conn))
+        run_id = start_run(conn, "workflow", f"tailor {job_id}")
+    ok = False
+    try:
+        reply = asyncio.run((tailor_fn or tailor_via_a2a)(job_id, max_paid_usd=remaining))
+        profile = load_profile(profile_path())
+        try:  # the agent service checked it; check again against this machine's profile
+            resume = check_resume(reply.resume, profile, job_id)
+        except ResumeRejected as e:
+            raise ValueError(f"the draft didn't hold up against your profile: {e}") from e
+        placeholders = profile_placeholders(resume, profile)
+        if placeholders:
+            raise ValueError("your profile still has placeholders that would print on the resume; fix them in "
+                             "data/profile.yaml: " + "; ".join(placeholders))
+        with _conn() as conn:
+            save_resume(conn, resume, reply.model, PROMPT_VERSION, run_id)
+            save_llm_calls(conn, reply.calls, run_id, job_id)
+        ok = True
+    except Exception as e:
+        if isinstance(e, ValueError):
+            raise
+        raise ValueError(f"tailoring failed: {(str(e).splitlines() or [type(e).__name__])[0][:300]}") from e
+    finally:
+        with _conn() as conn:
+            finish_run(conn, run_id, 1 if ok else 0, 0 if ok else 1)
+    return resume_view(job_id)

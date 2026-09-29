@@ -15,7 +15,7 @@ from lodestar.schemas.job import ClassificationLayer, Source
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 RUN_KINDS = ("workflow", "eval", "batch")
 DISCOVERY_VERDICTS = ("queued", "skipped", "invalid", "known")
@@ -125,6 +125,18 @@ CREATE TABLE IF NOT EXISTS discoveries (
 );
 CREATE INDEX IF NOT EXISTS idx_discoveries_board ON discoveries(ats, board);
 
+CREATE TABLE IF NOT EXISTS resumes (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id         TEXT NOT NULL REFERENCES jobs(id),
+    fit_result_id  INTEGER REFERENCES fit_results(id),
+    content        TEXT NOT NULL,      -- TailoredResume JSON, as checked
+    model          TEXT,
+    prompt_version TEXT,
+    created_at     TEXT NOT NULL,
+    run_id         INTEGER REFERENCES runs(id)
+);
+CREATE INDEX IF NOT EXISTS idx_resumes_job ON resumes(job_id);
+
 CREATE TABLE IF NOT EXISTS decisions (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     fit_result_id INTEGER NOT NULL REFERENCES fit_results(id),
@@ -213,6 +225,7 @@ MIGRATIONS: dict[int, str | Callable[[sqlite3.Connection], None] | None] = {
     4: _migrate_v4,
     5: None,  # v5 only adds the discoveries table, which SCHEMA creates
     6: "ALTER TABLE jobs ADD COLUMN dismissed_reason TEXT",
+    7: None,  # v7 only adds the resumes table, which SCHEMA creates
 }
 
 
