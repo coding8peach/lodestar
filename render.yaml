@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: lodestar-demo
+    runtime: python
+    plan: free
+    buildCommand: pip install uv && uv sync --frozen --no-dev
+    startCommand: >-
+      cp demo/demo.sqlite /tmp/demo.sqlite &&
+      uv run --no-sync streamlit run src/lodestar/ui/app.py
+      --server.port $PORT --server.address 0.0.0.0 --server.headless true
+      --browser.gatherUsageStats false --theme.primaryColor "#24476b"
+    envVars:
+      - key: LODESTAR_DEMO
+        value: "1"
+      - key: LODESTAR_DB
+        value: /tmp/demo.sqlite
+      - key: LODESTAR_PROFILE
+        value: demo/profile.yaml
